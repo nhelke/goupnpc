@@ -1,0 +1,7 @@
+GoUPnPC
+=======
+
+GoUPnPC is a MiniUPnPC inspired library I am in the process of developping as
+part of my Bachelor's degree thesis. For the time being only IGDv1 is supported.
+It offers an API very close to the options provided by the UPnPC command line
+client.
