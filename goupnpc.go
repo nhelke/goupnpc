@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"time"
 
 	l4g "code.google.com/p/log4go"
 )
@@ -22,7 +21,7 @@ type PortMapping struct {
 }
 
 func GetConnectionStatus() {
-	url := discoverIGD(5 * time.Second)
+	url, _ := discoverIGD()
 	resp, err := http.Get(url)
 	if err == nil {
 		l4g.Info("%v", resp.Header)

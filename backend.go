@@ -23,7 +23,7 @@ func addPortRedirection(done chan error) {
 // The function blocks until a UPnP enabled IGD is found or timeout
 // rounded down to the nearest second expires. Timeouts smaller than 3 seconds
 // are unreasonable
-func discoverIGD(timeout time.Duration) (u string) {
+func discoverIGD() (u string, ok bool) {
 	const (
 		ssdpIPv4Addr = "239.255.255.250"
 		ssdpPort     = 1900
@@ -38,6 +38,9 @@ func discoverIGD(timeout time.Duration) (u string) {
 	// These are the various device types we need to M-SEARCH the local subnet
 	// for. The last one is a fallback copied from MiniUPnPC's behavior and is
 	// unlikely to yield usable results
+	//
+	// This slice is sorted from most specific device type to the most general.
+	// Be advised that the below loop relies on this ordering.
 	var deviceTypes = []string{
 		"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
 		"urn:schemas-upnp-org:service:WANIPConnection:1",
@@ -51,7 +54,14 @@ func discoverIGD(timeout time.Duration) (u string) {
 	multicastAddr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d",
 		ssdpIPv4Addr, ssdpPort))
 	conn, err := net.ListenUDP("udp4", localBindAllAddr)
+	var timeout time.Duration = 4 * time.Second
 	if err == nil {
+		// TODO Add surrounding loop for exponential try back-off
+
+		// For each device type, M-SEARCH for it, return the first one found
+		// As deviceTypes is sorted from most specific to least specific type
+		// returning the first should work fine.
+		// MAYBE Pipeline the requests and merge the results
 		for i := 0; i < len(deviceTypes); i++ {
 			// We write our own request *à la main* as trying to use Go's
 			// standard library's HTTP package turns out to be require more
@@ -59,38 +69,41 @@ func discoverIGD(timeout time.Duration) (u string) {
 			// standard URL
 			requestString := []byte(fmt.Sprintf(format, ssdpIPv4Addr, ssdpPort,
 				deviceTypes[i], timeout/time.Second))
+			// Allocate a buffer for the response
+			buf := make([]byte, 1500)
 			// We want to timeout and move on to the next type after a couple of
 			// seconds
 			conn.SetDeadline(time.Now().Add(timeout))
 			// Send multicast request
 			conn.WriteToUDP(requestString, multicastAddr)
-			// Allocate a buffer for the response
-			buf := make([]byte, 1500)
 			// Get a response; the above timeout is still in effect as it
 			// should be
 			n, addr, err := conn.ReadFromUDP(buf)
-			if err != nil {
-				l4g.Info(err)
-			} else {
+			if err == nil {
 				// Parse and interpret the response and break if successful
-				l4g.Info("Received %d bytes from %v", n, addr)
+				l4g.Debug("Received %d bytes from %v", n, addr)
 				req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(
 					requestString)))
 				if err != nil {
-					l4g.Critical("Shit %v", err)
-				} else {
-					l4g.Info("%v", req.URL)
+					// Failure to parse the request represents an assertion
+					// failure as we crafted the request ourself and have ensured
+					// its validity
+					panic(err)
 				}
 				resp, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(
 					buf[:n])), req)
 				if err == nil {
 					defer resp.Body.Close()
+					l4g.Info("%v", resp.Header)
 					urls := resp.Header["Location"]
-					l4g.Info("%v", urls)
-					u = "*"
+					u = urls[0]
+					ok = true
+					return
 				} else {
-					l4g.Critical("Shit %v", err)
+					l4g.Warn(err)
 				}
+			} else {
+				l4g.Warn(err)
 			}
 		}
 	} else {
@@ -98,5 +111,5 @@ func discoverIGD(timeout time.Duration) (u string) {
 	}
 	// If we get here we could not find any UPnP devices
 
-	return "http://172.28.165.1:1780/InternetGatewayDevice.xml"
+	return
 }
