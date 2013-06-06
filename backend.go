@@ -1,6 +1,7 @@
 package goupnpc
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/url"
@@ -33,7 +34,7 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 			"\r\n"
 	)
 
-	var deviceList = []string{
+	var deviceTypes = []string{
 		"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
 		"urn:schemas-upnp-org:service:WANIPConnection:1",
 		"urn:schemas-upnp-org:service:WANPPPConnection:1",
@@ -43,25 +44,36 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 	allIf, _ := net.ResolveUDPAddr("udp4", ":0")
 	broadcast, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", ssdpIPv4Addr,
 		ssdpPort))
-	conn, err := net.ListenUDP("udp4", allIf)
-	if err == nil {
-		conn.SetDeadline(time.Now().Add(10 * time.Second))
-		for i := 0; i < len(deviceList); i++ {
+	for i := 0; i < len(deviceTypes); i++ {
+		conn, err := net.ListenUDP("udp4", allIf)
+		if err == nil {
+			// We want to timeout and move on to the next type after a couple of
+			// seconds
+			conn.SetDeadline(time.Now().Add(timeout))
+			// Send multicast request
 			conn.WriteToUDP([]byte(fmt.Sprintf(format, ssdpIPv4Addr, ssdpPort,
-				deviceList[i], timeout/time.Second)), broadcast)
-		}
-		buf := make([]byte, 1500)
-		for {
+				deviceTypes[i], timeout/time.Second)), broadcast)
+			// Allocate a buffer for the response
+			buf := make([]byte, 1500)
+			// Get a response; the above timeout is still in effect as it
+			// should be
 			n, addr, err := conn.ReadFromUDP(buf)
 			if err != nil {
 				l4g.Info(err)
+			} else {
+				// Parse and interpret the response and break if successful
+				l4g.Info("Received from %v:\n", addr)
+				r := bytes.Split(buf[:n], []byte("\r\n"))
+				for i := 0; i < len(r); i++ {
+					l4g.Info("%s", string(r[i]))
+				}
 				break
 			}
-			l4g.Info("Received from %v:\n%s", addr, string(buf[:n]))
+		} else {
+			l4g.Warn(err)
 		}
-	} else {
-		l4g.Warn(err)
 	}
+	// If we get here we could not find any UPnP devices
 
 	return
 }
