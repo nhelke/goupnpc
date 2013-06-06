@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -17,6 +18,14 @@ func addPortRedirection(done chan error) {
 
 }
 
+type ssdpRoundTripper struct{}
+
+var defaultSsdpRoundTripper = &ssdpRoundTripper{}
+
+func (*ssdpRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	return nil, nil
+}
+
 // This function implements the strict minimum of SSDP in order to discover the
 // IGDs on the various net.Interfaces() with IP addresses in the private network
 // range (indicating the probable existence of a NAT IGD)
@@ -25,9 +34,9 @@ func addPortRedirection(done chan error) {
 // are unreasonable
 func discoverIGD(timeout time.Duration) (u *url.URL) {
 	const (
-		ssdpIPv4Addr        = "239.255.255.250"
-		ssdpPort            = 1900
-		format       string = "M-SEARCH * HTTP/1.1\r\n" +
+		ssdpIPv4Addr = "239.255.255.250"
+		ssdpPort     = 1900
+		format       = "M-SEARCH * HTTP/1.1\r\n" +
 			"HOST: %s:%d\r\n" +
 			"ST: %s\r\n" +
 			"MAN: \"ssdp:discover\"\r\n" +
@@ -41,6 +50,9 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 		"urn:schemas-upnp-org:service:WANPPPConnection:1",
 		"upnp:rootdevice",
 	}
+
+	var client http.Client
+	client.Transport = defaultSsdpRoundTripper
 
 	allIf, _ := net.ResolveUDPAddr("udp4", ":0")
 	broadcast, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", ssdpIPv4Addr,
