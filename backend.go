@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	l4g "code.google.com/p/log4go"
@@ -62,12 +63,31 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 				l4g.Info(err)
 			} else {
 				// Parse and interpret the response and break if successful
-				l4g.Info("Received from %v:\n", addr)
+				l4g.Info("Received from %v:", addr)
 				r := bytes.Split(buf[:n], []byte("\r\n"))
-				for i := 0; i < len(r); i++ {
-					l4g.Info("%s", string(r[i]))
+				if len(r) > 0 {
+					headers := make(map[string]string)
+					for i := 1; i < len(r); i++ {
+						line := string(r[i])
+						l4g.Info("%s", line)
+						kv := strings.SplitN(line, ":", 2)
+						if len(kv) == 2 {
+							headers[strings.TrimSpace(strings.ToUpper(kv[0]))] =
+								strings.TrimSpace(kv[1])
+						}
+					}
+					if location, ok := headers["LOCATION"]; ok {
+						u, err = url.Parse(location)
+						if err == nil {
+							return
+						} else {
+							l4g.Warn("Response missing LOCATION\n")
+						}
+					}
+				} else {
+					l4g.Warn("Malformed response, skipping device type")
+					l4g.Debug("%s", string(buf[:n]))
 				}
-				break
 			}
 		} else {
 			l4g.Warn(err)
