@@ -1,8 +1,8 @@
 package goupnpc
 
 import (
+	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -17,19 +17,6 @@ type protocol int
 
 func addPortRedirection(done chan error) {
 
-}
-
-type ssdpRoundTripper struct{}
-
-var defaultSsdpRoundTripper = &ssdpRoundTripper{}
-
-func (*ssdpRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	l4g.Info("%v", req)
-	buf := make([]byte, 1500)
-	buff := bytes.NewBuffer(buf)
-	req.Write(buff)
-	l4g.Info("Network: %v", string(buff.Bytes()))
-	return nil, errors.New("Shit")
 }
 
 // This function implements the strict minimum of SSDP in order to discover the
@@ -57,22 +44,10 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 		"upnp:rootdevice",
 	}
 
-	var client http.Client
-	client.Transport = defaultSsdpRoundTripper
-
 	allIf, _ := net.ResolveUDPAddr("udp4", ":0")
 	broadcast, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", ssdpIPv4Addr,
 		ssdpPort))
 	for i := 0; i < len(deviceTypes); i++ {
-		req, err := http.NewRequest("GET", "", nil)
-		if err == nil {
-			req.Host = ssdpIPv4Addr
-			req.URL.Opaque = "*"
-			req.Header.Add("ST", deviceTypes[0])
-			req.Header.Add("MAN", "\"ssdp:discover\"")
-			req.Header.Add("MX", "4")
-			client.Do(req)
-		}
 		conn, err := net.ListenUDP("udp4", allIf)
 		if err == nil {
 			// We want to timeout and move on to the next type after a couple of
@@ -114,6 +89,10 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 				} else {
 					l4g.Warn("Malformed response, skipping device type")
 					l4g.Debug("%s", string(buf[:n]))
+				}
+				resp, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(buf[:n])), nil)
+				if err == nil {
+					l4g.Info("%v", resp)
 				}
 			}
 		} else {
