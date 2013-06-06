@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	l4g "code.google.com/p/log4go"
@@ -25,7 +23,7 @@ func addPortRedirection(done chan error) {
 // The function blocks until a UPnP enabled IGD is found or timeout
 // rounded down to the nearest second expires. Timeouts smaller than 3 seconds
 // are unreasonable
-func discoverIGD(timeout time.Duration) (u *url.URL) {
+func discoverIGD(timeout time.Duration) (u string) {
 	const (
 		ssdpIPv4Addr = "239.255.255.250"
 		ssdpPort     = 1900
@@ -45,17 +43,18 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 	}
 
 	allIf, _ := net.ResolveUDPAddr("udp4", ":0")
-	broadcast, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", ssdpIPv4Addr,
-		ssdpPort))
+	hostname := fmt.Sprintf("%s:%d", ssdpIPv4Addr, ssdpPort)
+	broadcast, _ := net.ResolveUDPAddr("udp4", hostname)
 	for i := 0; i < len(deviceTypes); i++ {
 		conn, err := net.ListenUDP("udp4", allIf)
 		if err == nil {
 			// We want to timeout and move on to the next type after a couple of
 			// seconds
 			conn.SetDeadline(time.Now().Add(timeout))
+			requestString := []byte(fmt.Sprintf(format, ssdpIPv4Addr, ssdpPort,
+				deviceTypes[i], timeout/time.Second))
 			// Send multicast request
-			conn.WriteToUDP([]byte(fmt.Sprintf(format, ssdpIPv4Addr, ssdpPort,
-				deviceTypes[i], timeout/time.Second)), broadcast)
+			conn.WriteToUDP(requestString, broadcast)
 			// Allocate a buffer for the response
 			buf := make([]byte, 1500)
 			// Get a response; the above timeout is still in effect as it
@@ -65,34 +64,19 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 				l4g.Info(err)
 			} else {
 				// Parse and interpret the response and break if successful
-				l4g.Info("Received from %v:", addr)
-				r := bytes.Split(buf[:n], []byte("\r\n"))
-				if len(r) > 0 {
-					headers := make(map[string]string)
-					for i := 1; i < len(r); i++ {
-						line := string(r[i])
-						l4g.Info("%s", line)
-						kv := strings.SplitN(line, ":", 2)
-						if len(kv) == 2 {
-							headers[strings.TrimSpace(strings.ToUpper(kv[0]))] =
-								strings.TrimSpace(kv[1])
-						}
-					}
-					if location, ok := headers["LOCATION"]; ok {
-						u, err = url.Parse(location)
-						if err == nil {
-							return
-						} else {
-							l4g.Warn("Response missing LOCATION\n")
-						}
-					}
-				} else {
-					l4g.Warn("Malformed response, skipping device type")
-					l4g.Debug("%s", string(buf[:n]))
+				l4g.Info("Received %d bytes from %v", n, addr)
+				req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(requestString)))
+				if err != nil {
+					l4g.Critical("Shit %v", err)
 				}
-				resp, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(buf[:n])), nil)
+				resp, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(buf[:n])), req)
 				if err == nil {
-					l4g.Info("%v", resp)
+					defer resp.Body.Close()
+					urls := resp.Header["Location"]
+					l4g.Info("%v\n%v", resp, urls)
+					u = "*"
+				} else {
+					l4g.Critical("Shit %v", err)
 				}
 			}
 		} else {
@@ -101,5 +85,5 @@ func discoverIGD(timeout time.Duration) (u *url.URL) {
 	}
 	// If we get here we could not find any UPnP devices
 
-	return
+	return "http://172.28.165.1:1780/InternetGatewayDevice.xml"
 }

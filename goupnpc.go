@@ -22,9 +22,8 @@ type PortMapping struct {
 }
 
 func GetConnectionStatus() {
-	u := discoverIGD(5 * time.Second)
-	l4g.Info("%v", u)
-	resp, err := http.Get(u.String())
+	url := discoverIGD(5 * time.Second)
+	resp, err := http.Get(url)
 	if err == nil {
 		l4g.Info("%v", resp.Header)
 		defer resp.Body.Close()
