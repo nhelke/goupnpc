@@ -1,10 +1,12 @@
 package goupnpc
 
 import (
+	"encoding/xml"
+	"io/ioutil"
 	"net"
-	"time"
+	"net/http"
 
-	// l4g "code.google.com/p/log4go"
+	l4g "code.google.com/p/log4go"
 )
 
 const (
@@ -19,7 +21,34 @@ type PortMapping struct {
 }
 
 func GetConnectionStatus() {
-	discoverIGD(5 * time.Second)
+	url, _ := discoverIGD()
+	resp, err := http.Get(url)
+	if err == nil {
+		l4g.Info("%v", resp.Header)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err == nil {
+			l4g.Info("%v", string(body))
+			var x struct {
+				XMLName     xml.Name `xml:"urn:schemas-upnp-org:device-1-0 root"`
+				SpecVersion struct {
+					Major int `xml:"major"`
+				} `xml:"specVersion"`
+			}
+			err := xml.Unmarshal(body, &x)
+			if err == nil {
+				l4g.Info("%v", x)
+				fxml, err := xml.MarshalIndent(x, "", "  ")
+				if err == nil {
+					l4g.Info("%v", string(fxml))
+				}
+			} else {
+				l4g.Warn("Bad XML: %v", err)
+			}
+		} else {
+			l4g.Warn("Error reading response")
+		}
+	}
 }
 
 func AddPortRedirection(lAddr net.Addr, externalPort uint16, protocol protocol) (ret chan error) {
