@@ -25,8 +25,6 @@ func main() {
 			igd := <-discover
 			status := <-igd.GetConnectionStatus()
 			fmt.Printf("%+v\n", status)
-			myMapping := <-igd.AddLocalPortRedirection(6881, goupnp.TCP)
-			fmt.Println(myMapping)
 		} else if os.Args[1] == "l" {
 			igd := <-discover
 			for portMapping := range igd.ListRedirections() {
@@ -36,7 +34,8 @@ func main() {
 			igd := <-discover
 			port, _ := strconv.Atoi(os.Args[2])
 			proto := goupnp.ParseProtocol(os.Args[3])
-			igd.AddLocalPortRedirection(uint16(port), proto)
+			myMapping := <-igd.AddLocalPortRedirection(uint16(port), proto)
+			fmt.Printf("%+v\n", myMapping)
 		} else {
 			printUsage()
 		}

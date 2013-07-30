@@ -245,11 +245,13 @@ func (self *IGD) ListRedirections() (ret chan *PortMapping) {
 	return
 }
 
+// Function for parsing a protocol in string form to protocol type for use with
+// this library's methods. Only TCP and UDP are supported.
 func ParseProtocol(proto string) (ret protocol) {
-	switch proto {
-	case "TCP", "tcp":
+	switch {
+	case strings.EqualFold("tcp", proto):
 		ret = TCP
-	case "UDP", "udp":
+	case strings.EqualFold("udp", proto):
 		ret = UDP
 	}
 	return
