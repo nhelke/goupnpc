@@ -1,6 +1,8 @@
+// A small library for using the port mapping controls of UPnP-enabled IGDs
 package goupnp
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -16,6 +18,9 @@ const (
 	UDP
 )
 
+// This type provides all the information about port mappings.
+// It also serves as a handle returned by AddLocalPortRedirection() for use with
+// DeletePortRedirection().
 type PortMapping struct {
 	InternalPort uint16
 	ExternalPort uint16
@@ -32,6 +37,11 @@ func (self *PortMapping) String() string {
 		self.Enabled, ", ", self.Lease, ")")
 }
 
+// This opaque type provides a handle to a discovered IGD
+// Use DiscoverIGD() to obtain such a handle.
+//
+// NOTA BENE Using instances of this struct not retured by the appropriate
+// function call has undefined behaviour
 type IGD struct {
 	controlURL *url.URL
 	upnptype   string
@@ -95,7 +105,6 @@ func DiscoverIGD() (ret chan *IGD) {
 								igd.iface = bindLocalAddrs[i].IP
 
 								ret <- &igd
-								return
 							}
 						} else {
 							l4g.Warn("Bad XML: %v", err)
@@ -107,9 +116,10 @@ func DiscoverIGD() (ret chan *IGD) {
 			}
 		}
 
-		// If we get here we did not find an IGD, so we close the channel This
-		// will have the effect of returning nil and will indicate the closure
-		// to listeners.
+		// If we get here we did not find an IGD or have already passed the
+		// information to the channel and it has been read, so we close the
+		// channel This will have the effect of returning nil and will indicate
+		// the closure to listeners.
 		close(ret)
 	}()
 	return
@@ -142,7 +152,6 @@ func (self *IGD) GetConnectionStatus() (ret chan *ConnectionStatus) {
 			}
 		} else if ok && strings.EqualFold(x.Body.Status.NewConnectionStatus, "Disconnected") {
 			ret <- &ConnectionStatus{false, nil}
-			return
 		}
 		close(ret)
 	}()
@@ -150,6 +159,16 @@ func (self *IGD) GetConnectionStatus() (ret chan *ConnectionStatus) {
 	return
 }
 
+// This method creates a port mapping on the IGD with internal, external ports
+// and protocol respectively equal to the passed port argument (bis) and
+// protocol
+//
+// Errors are indicated by the channel closing before a PortMapping is returns.
+// Listeners should therefore check at the very least for nil, better still
+// for channel closure.
+//
+// NOTE BENE the channel closes after a successive PortMapping has been send on
+// it, in order to not leak resources.
 func (self *IGD) AddLocalPortRedirection(port uint16, proto protocol) (ret chan *PortMapping) {
 	ret = make(chan *PortMapping)
 
@@ -169,18 +188,31 @@ func (self *IGD) AddLocalPortRedirection(port uint16, proto protocol) (ret chan 
 			}
 
 			ret <- &portMapping
-		} else {
-			close(ret)
 		}
+		close(ret)
 	}()
 
 	return
 }
 
-func (self *IGD) DeletePortRedirection(portMappings ...*PortMapping) {
-
+// BUG(nhelke): NOT IMPLEMENTED — ALWAYS RETURNS ERROR
+//
+// Please feel free to submit a pull request to
+// https://github.com/nhelke/goupnpc and I will be sure to merge it.
+func (self *IGD) DeletePortRedirection(portMappings ...*PortMapping) (ret chan error) {
+	ret = make(chan error)
+	go func() {
+		ret <- errors.New("Sorry, I haven't implemented this yet. " +
+			"Feel free to submit a pull request to github.com/nhelke/goupnpc " +
+			"and I will be sure to merge it.")
+		close(ret)
+	}()
+	return ret
 }
 
+// This method returns a buffered channel which should be iterated over. The
+// channel is closed on after the last port mapping, so iterating over the
+// channel will not loop forever.
 func (self *IGD) ListRedirections() (ret chan *PortMapping) {
 	ret = make(chan *PortMapping, 10)
 
@@ -201,12 +233,7 @@ func (self *IGD) ListRedirections() (ret chan *PortMapping) {
 					Description:  x.Body.PortMapping.Description,
 					InternalHost: net.ParseIP(x.Body.PortMapping.InternalClient),
 				}
-				switch x.Body.PortMapping.Protocol {
-				case "TCP", "tcp":
-					portMapping.Protocol = TCP
-				case "UDP", "udp":
-					portMapping.Protocol = UDP
-				}
+				portMapping.Protocol = ParseProtocol(x.Body.PortMapping.Protocol)
 				ret <- &portMapping
 			} else {
 				close(ret)
@@ -215,6 +242,16 @@ func (self *IGD) ListRedirections() (ret chan *PortMapping) {
 		}
 	}()
 
+	return
+}
+
+func ParseProtocol(proto string) (ret protocol) {
+	switch proto {
+	case "TCP", "tcp":
+		ret = TCP
+	case "UDP", "udp":
+		ret = UDP
+	}
 	return
 }
 

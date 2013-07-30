@@ -1,8 +1,13 @@
+// This command is useful both to test the associated goupnp library and
+// its source serves as an example of how to use said library.
+//
+// Usage instructions can be obtained by running it without any arguments.
 package main
 
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	l4g "code.google.com/p/log4go"
@@ -15,16 +20,25 @@ func main() {
 	if len(os.Args) < 2 {
 		printUsage()
 	} else {
+		discover := goupnp.DiscoverIGD()
 		if os.Args[1] == "s" {
-			igd := <-goupnp.DiscoverIGD()
-			fmt.Println("Found IGD", igd)
+			igd := <-discover
 			status := <-igd.GetConnectionStatus()
-			fmt.Println(status, goupnp.IsPrivateIPAddress(status.IP))
+			fmt.Printf("%+v\n", status)
+			myMapping := <-igd.AddLocalPortRedirection(6881, goupnp.TCP)
+			fmt.Println(myMapping)
+		} else if os.Args[1] == "l" {
+			igd := <-discover
 			for portMapping := range igd.ListRedirections() {
 				fmt.Println(portMapping)
 			}
-			myMapping := <-igd.AddLocalPortRedirection(6881, goupnp.TCP)
-			fmt.Println(myMapping)
+		} else if os.Args[1] == "a" {
+			igd := <-discover
+			port, _ := strconv.Atoi(os.Args[2])
+			proto := goupnp.ParseProtocol(os.Args[3])
+			igd.AddLocalPortRedirection(uint16(port), proto)
+		} else {
+			printUsage()
 		}
 	}
 
@@ -32,5 +46,14 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println("That is not how you use me")
+	fmt.Println(
+		`Usage: goupnpc s
+           Print IGD Status
+       goupnpc a port protocol
+           Add local port mapping with internal and external ports equal to
+           port and protocol equal to, well I will let you guess
+       goupnpc l
+           Lists all port mappings on the IGD
+NOTA BENE No error checking is performed, if anything goes wrong, it will
+probably panic on nil or something`)
 }
