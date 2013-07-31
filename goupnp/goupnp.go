@@ -130,9 +130,20 @@ type ConnectionStatus struct {
 	IP        net.IP
 }
 
+// This method fetches the status of the IGD.
+//
+// Errors are indicated by the channel closing before a ConnectionStatus is
+// returned. Listeners should therefore check at the very least for nil, better
+// still for channel closure.
+//
+// NOTA BENE the channel closes after a successive ConnectionStatus has been
+// send on it, in order to not leak resources.
 func (self *IGD) GetConnectionStatus() (ret chan *ConnectionStatus) {
+	// We initialise the channel
 	ret = make(chan *ConnectionStatus)
 
+	// We go do the work in a separate goroutine, the closure has access to the
+	// channel we just instanciated so we will be able to manipulate it.
 	go func() {
 		x, ok := self.soapRequest("GetStatusInfo", statusRequestStringReader(self.upnptype))
 		if ok && strings.EqualFold(x.Body.Status.NewConnectionStatus, "Connected") {
@@ -156,6 +167,7 @@ func (self *IGD) GetConnectionStatus() (ret chan *ConnectionStatus) {
 		close(ret)
 	}()
 
+	// We immediately return the channel to the caller
 	return
 }
 
@@ -163,11 +175,11 @@ func (self *IGD) GetConnectionStatus() (ret chan *ConnectionStatus) {
 // and protocol respectively equal to the passed port argument (bis) and
 // protocol
 //
-// Errors are indicated by the channel closing before a PortMapping is returns.
+// Errors are indicated by the channel closing before a PortMapping is returned.
 // Listeners should therefore check at the very least for nil, better still
 // for channel closure.
 //
-// NOTE BENE the channel closes after a successive PortMapping has been send on
+// NOTA BENE the channel closes after a successive PortMapping has been send on
 // it, in order to not leak resources.
 func (self *IGD) AddLocalPortRedirection(port uint16, proto protocol) (ret chan *PortMapping) {
 	ret = make(chan *PortMapping)
