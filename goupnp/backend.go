@@ -14,15 +14,16 @@ import (
 
 type protocol int
 
-func (self protocol) String() string {
+func (self protocol) String() (str string) {
 	switch self {
 	case TCP:
-		return "TCP"
+		str = "TCP"
 	case UDP:
-		return "UDP"
+		str = "UDP"
 	default:
-		return "#(Bad Protocol Value)"
+		str = "#(Bad Protocol Value)"
 	}
+	return
 }
 
 type deviceElement struct {

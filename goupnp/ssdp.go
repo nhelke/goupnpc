@@ -23,7 +23,10 @@ func localPrivateAddrs() (ret []*net.UDPAddr) {
 			if ip, ok := addrs[i].(*net.IPNet); ok {
 				if IsPrivateIPAddress(ip.IP) {
 					l4g.Debug("Found private addr %v", ip.IP)
-					ret = append(ret, &net.UDPAddr{ip.IP, 0, ""})
+					ret = append(ret, &net.UDPAddr{
+						IP:   ip.IP,
+						Port: 0,
+					})
 				}
 			}
 		}
