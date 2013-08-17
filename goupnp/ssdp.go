@@ -36,6 +36,30 @@ func localPrivateAddrs() (ret []*net.UDPAddr) {
 	return
 }
 
+const (
+	ssdpIPv4Addr = "239.255.255.250"
+	ssdpPort     = 1900
+	format       = "M-SEARCH * HTTP/1.1\r\n" +
+		"HOST: %s:%d\r\n" +
+		"ST: %s\r\n" +
+		"MAN: \"ssdp:discover\"\r\n" +
+		"MX: %d\r\n" +
+		"\r\n"
+)
+
+// These are the various device types we need to M-SEARCH the local subnet
+// for. The last one is a fallback copied from MiniUPnPC's behavior and is
+// unlikely to yield usable results
+//
+// This slice is sorted from most specific device type to the most general.
+// Be advised that the below loop relies on this ordering.
+var deviceTypes = []string{
+	"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+	"urn:schemas-upnp-org:service:WANIPConnection:1",
+	"urn:schemas-upnp-org:service:WANPPPConnection:1",
+	"upnp:rootdevice",
+}
+
 // This function implements the strict minimum of SSDP in order to discover the
 // an IGD on the passed localBindAddr. The function blocks until a UPnP enabled
 // IGD is found or timeout of four seconds expires. Timeouts smaller than 3
@@ -44,30 +68,6 @@ func localPrivateAddrs() (ret []*net.UDPAddr) {
 // may wish to use goupnp.localPrivateAddrs() to obtain a list of valid such
 // addresses for the localhost.
 func discoverIGDDescriptionURL(localBindAddr *net.UDPAddr) (u *url.URL, ok bool) {
-	const (
-		ssdpIPv4Addr = "239.255.255.250"
-		ssdpPort     = 1900
-		format       = "M-SEARCH * HTTP/1.1\r\n" +
-			"HOST: %s:%d\r\n" +
-			"ST: %s\r\n" +
-			"MAN: \"ssdp:discover\"\r\n" +
-			"MX: %d\r\n" +
-			"\r\n"
-	)
-
-	// These are the various device types we need to M-SEARCH the local subnet
-	// for. The last one is a fallback copied from MiniUPnPC's behavior and is
-	// unlikely to yield usable results
-	//
-	// This slice is sorted from most specific device type to the most general.
-	// Be advised that the below loop relies on this ordering.
-	var deviceTypes = []string{
-		"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
-		"urn:schemas-upnp-org:service:WANIPConnection:1",
-		"urn:schemas-upnp-org:service:WANPPPConnection:1",
-		"upnp:rootdevice",
-	}
-
 	multicastAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d",
 		ssdpIPv4Addr, ssdpPort))
 	if err != nil {
@@ -98,10 +98,13 @@ func discoverIGDDescriptionURL(localBindAddr *net.UDPAddr) (u *url.URL, ok bool)
 			// should be
 			n, addr, err := conn.ReadFromUDP(buf)
 			if err == nil {
+				// Ugly ugly ugly workaround for URL panic on *
+				adulteredReqStr := requestString
+				adulteredReqStr[9] = '/'
 				// Parse and interpret the response and break if successful
 				l4g.Debug("Received %d bytes from %v", n, addr)
 				req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(
-					requestString)))
+					adulteredReqStr)))
 				if err != nil {
 					// Failure to parse the request represents an assertion
 					// failure as we crafted the request ourselves and have

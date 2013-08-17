@@ -1,7 +1,12 @@
 package goupnp
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"net/http"
 	"testing"
+	"time"
 )
 
 func TestDescriptionParsing(t *testing.T) {
@@ -90,4 +95,17 @@ func TestDescriptionParsing(t *testing.T) {
 	if upnptype != connectionTypeStringWANIP || url != "http://192.168.2.1:80/upnp/service/WANIPConnection" || err != nil {
 		t.Errorf("Type: %v, URL: %v, Error: %v", upnptype, url, err)
 	}
+}
+
+func TestRequestCompatibility(t *testing.T) {
+	requestString := []byte(fmt.Sprintf(format, ssdpIPv4Addr, ssdpPort,
+		deviceTypes[0], 2*time.Second))
+	requestString[9] = '/'
+
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(
+		requestString)))
+	if err != nil {
+		t.Error(err, req)
+	}
+
 }
