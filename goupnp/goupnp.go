@@ -95,9 +95,19 @@ func DiscoverIGD() (ret chan *IGD) {
 							if err != nil {
 								l4g.Warn("Failed to parse URL %v", controlURL)
 							} else {
-								// The URL was good, lets track the type as
-								// well, in order to make the correct calls down
-								// the line
+								// Some routers erroniously do not provide a base URL
+								// so we check if this is not an absoulte URL, we attempt
+								// to guess valid values using the SSDP information
+								// we have gathered.
+								if !igd.controlURL.IsAbs() {
+									igd.controlURL.Scheme = "http"
+								}
+								if igd.controlURL.Host == "" {
+									igd.controlURL.Host = descURL.Host
+								}
+
+								// Lets track the type as well, in order to make
+								// the correct calls down the line
 								igd.upnptype = upnptype
 								// We now add the local binding address to
 								// enable the simple AddLocalPortRedirection

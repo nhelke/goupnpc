@@ -171,13 +171,13 @@ func (self *IGD) soapRequest(requestType string,
 			if err == nil {
 				ok = true
 			} else {
-				l4g.Warn(err)
+				l4g.Warn("While unmarshaling XML: %v", err)
 			}
 		} else {
-			l4g.Warn(err)
+			l4g.Warn("While reading response: %v", err)
 		}
 	} else {
-		l4g.Warn(err)
+		l4g.Warn("While performing SOAP/HTTP request: %v", err)
 	}
 
 	return
