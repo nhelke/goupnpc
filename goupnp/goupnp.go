@@ -146,6 +146,10 @@ func (self netIP) MarshalJSON() ([]byte, error) {
 	return json.Marshal(net.IP(self).String())
 }
 
+func (self netIP) String() string {
+	return net.IP(self).String()
+}
+
 type ConnectionStatus struct {
 	Connected bool
 	IP        netIP
