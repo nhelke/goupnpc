@@ -2,6 +2,7 @@
 package goupnp
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -18,6 +19,10 @@ const (
 	UDP
 )
 
+func (self protocol) MarshalJSON() ([]byte, error) {
+	return json.Marshal(self.String())
+}
+
 // This type provides all the information about port mappings.
 // It also serves as a handle returned by AddLocalPortRedirection() for use with
 // DeletePortRedirection().
@@ -25,7 +30,7 @@ type PortMapping struct {
 	InternalPort uint16
 	ExternalPort uint16
 	Protocol     protocol
-	InternalHost net.IP
+	InternalHost netIP
 	Description  string
 	Enabled      bool
 	Lease        uint
@@ -135,9 +140,15 @@ func DiscoverIGD() (ret chan *IGD) {
 	return
 }
 
+type netIP net.IP
+
+func (self netIP) MarshalJSON() ([]byte, error) {
+	return json.Marshal(net.IP(self).String())
+}
+
 type ConnectionStatus struct {
 	Connected bool
-	IP        net.IP
+	IP        netIP
 }
 
 // This method fetches the status of the IGD.
@@ -163,7 +174,7 @@ func (self *IGD) GetConnectionStatus() (ret chan *ConnectionStatus) {
 				ipString := y.Body.IP.NewExternalIPAddress
 				ip := net.ParseIP(ipString)
 				if ip != nil {
-					ret <- &ConnectionStatus{true, ip}
+					ret <- &ConnectionStatus{true, netIP(ip)}
 					return
 				} else {
 					l4g.Warn("Failed to parse IP string %v", ipString)
@@ -205,7 +216,7 @@ func (self *IGD) AddLocalPortRedirection(port uint16, proto protocol) (ret chan 
 				ExternalPort: port,
 				Enabled:      true,
 				Description:  description,
-				InternalHost: self.iface,
+				InternalHost: netIP(self.iface),
 				Protocol:     proto,
 			}
 
@@ -253,7 +264,7 @@ func (self *IGD) ListRedirections() (ret chan *PortMapping) {
 					ExternalPort: x.Body.PortMapping.ExternalPort,
 					Enabled:      x.Body.PortMapping.Enabled != 0,
 					Description:  x.Body.PortMapping.Description,
-					InternalHost: net.ParseIP(x.Body.PortMapping.InternalClient),
+					InternalHost: netIP(net.ParseIP(x.Body.PortMapping.InternalClient)),
 				}
 				portMapping.Protocol = ParseProtocol(x.Body.PortMapping.Protocol)
 				ret <- &portMapping

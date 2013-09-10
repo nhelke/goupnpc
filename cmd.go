@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -24,12 +25,24 @@ func main() {
 		if os.Args[1] == "s" {
 			igd := <-discover
 			status := <-igd.GetConnectionStatus()
-			fmt.Printf("%+v\n", status)
+			b, err := json.MarshalIndent(status, "", "  ")
+			if err != nil {
+				fmt.Println("error:", err)
+			}
+			os.Stdout.Write(b)
+			fmt.Println()
 		} else if os.Args[1] == "l" {
 			igd := <-discover
+			var portmappings []*goupnp.PortMapping
 			for portMapping := range igd.ListRedirections() {
-				fmt.Println(portMapping)
+				portmappings = append(portmappings, portMapping)
 			}
+			b, err := json.MarshalIndent(portmappings, "", "  ")
+			if err != nil {
+				fmt.Println("error:", err)
+			}
+			os.Stdout.Write(b)
+			fmt.Println()
 		} else if os.Args[1] == "a" {
 			igd := <-discover
 			port, _ := strconv.Atoi(os.Args[2])

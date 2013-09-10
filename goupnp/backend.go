@@ -161,6 +161,7 @@ func (self *IGD) soapRequest(requestType string,
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			l4g.Debug("Status not ok: %v", resp.Status)
 			return
 		}
 
