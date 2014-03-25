@@ -20,11 +20,19 @@ func localPrivateAddrs() (ret []*net.UDPAddr) {
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
 		for i := 0; i < len(addrs); i++ {
-			if ip, ok := addrs[i].(*net.IPNet); ok {
-				if IsPrivateIPAddress(ip.IP) {
-					l4g.Debug("Found private addr %v", ip.IP)
+			var ip net.IP
+
+			if addr, ok := addrs[i].(*net.IPNet); ok {
+				ip = addr.IP
+			} else if addr, ok := addrs[i].(*net.IPAddr); ok {
+				ip = addr.IP
+			}
+
+			if ip != nil {
+				if IsPrivateIPAddress(ip) {
+					l4g.Debug("Found private addr %v", ip)
 					ret = append(ret, &net.UDPAddr{
-						IP:   ip.IP,
+						IP:   ip,
 						Port: 0,
 					})
 				}
