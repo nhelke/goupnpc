@@ -98,8 +98,8 @@ func TestDescriptionParsing(t *testing.T) {
 }
 
 func TestRequestCompatibility(t *testing.T) {
-	requestString := []byte(fmt.Sprintf(format, ssdpIPv4Addr, ssdpPort,
-		deviceTypes[0], 2*time.Second))
+	requestString := fmt.Appendf(nil, format, ssdpIPv4Addr, ssdpPort,
+		deviceTypes[0], 2*time.Second)
 	requestString[9] = '/'
 
 	req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(

@@ -12,7 +12,7 @@ func TestIsPrivateIPAddress(t *testing.T) {
 		net.IPv4(172, 22, 8, 61),
 	}
 
-	for i := 0; i < len(privateAddrs); i++ {
+	for i := range privateAddrs {
 		if !IsPrivateIPAddress(privateAddrs[i]) {
 			t.Errorf("Incorrectly did not identify %v as a private IPv4 Address", privateAddrs[i])
 		}
@@ -24,7 +24,7 @@ func TestIsPrivateIPAddress(t *testing.T) {
 		net.IPv4(8, 8, 8, 8),
 	}
 
-	for i := 0; i < len(publicAddrs); i++ {
+	for i := range publicAddrs {
 		if IsPrivateIPAddress(publicAddrs[i]) {
 			t.Errorf("Incorrectly identified %v as a private IPv4 Address", publicAddrs[i])
 		}

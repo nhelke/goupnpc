@@ -4,7 +4,8 @@ package goupnp
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
+
 	"net"
 	"net/http"
 	"net/url"
@@ -69,7 +70,7 @@ func DiscoverIGD() (ret chan *IGD) {
 		// For each and every local address in the private network range
 		bindLocalAddrs := localPrivateAddrs()
 		slog.Debug("Found private network interfaces", "count", len(bindLocalAddrs))
-		for i := 0; i < len(bindLocalAddrs); i++ {
+		for i := range bindLocalAddrs {
 			// Use SSDP to search for a UPnP-enabled IGD
 			descURL, ok := discoverIGDDescriptionURL(bindLocalAddrs[i])
 
@@ -83,7 +84,7 @@ func DiscoverIGD() (ret chan *IGD) {
 					// envisage at a later date putting an upperbound on the
 					// buffer, however there is no risk of buffer overflow, so
 					// it is a low priority
-					body, err := ioutil.ReadAll(resp.Body)
+					body, err := io.ReadAll(resp.Body)
 					if err == nil {
 						slog.Debug("Description XML", "content", string(body))
 						// Parse the XML and extract relevant information

@@ -19,7 +19,7 @@ import (
 func localPrivateAddrs() (ret []*net.UDPAddr) {
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
-		for i := 0; i < len(addrs); i++ {
+		for i := range addrs {
 			var ip net.IP
 
 			if addr, ok := addrs[i].(*net.IPNet); ok {
@@ -88,13 +88,13 @@ func discoverIGDDescriptionURL(localBindAddr *net.UDPAddr) (u *url.URL, ok bool)
 		// For each device type, M-SEARCH for it, return the first one found
 		// As deviceTypes is sorted from most specific to least specific type
 		// returning the first should work fine.
-		for i := 0; i < len(deviceTypes); i++ {
+		for i := range deviceTypes {
 			// We write our own request *à la main* as trying to use Go's
 			// standard library's HTTP package turns out to be require more
 			// code than writing the request by hand, because of the non-
 			// standard URL
-			requestString := []byte(fmt.Sprintf(format, ssdpIPv4Addr, ssdpPort,
-				deviceTypes[i], timeout/time.Second))
+			requestString := fmt.Appendf(nil, format, ssdpIPv4Addr, ssdpPort,
+				deviceTypes[i], timeout/time.Second)
 			// Allocate a buffer for the response
 			buf := make([]byte, 1500)
 			// We want to timeout and move on to the next type after a couple of

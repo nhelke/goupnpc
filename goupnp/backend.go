@@ -5,7 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
+
 	"net"
 	"net/http"
 
@@ -57,7 +57,7 @@ const (
 )
 
 func statusRequestStringReader(upnptype string) io.Reader {
-	return bytes.NewReader([]byte(fmt.Sprintf(statusRequestString, upnptype)))
+	return bytes.NewReader(fmt.Appendf(nil, statusRequestString, upnptype))
 }
 
 const statusRequestString = `<?xml version="1.0"?>
@@ -80,7 +80,7 @@ s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 `
 
 func externalIPRequestStringReader(upnptype string) io.Reader {
-	return bytes.NewReader([]byte(fmt.Sprintf(externalIPRequestString, upnptype)))
+	return bytes.NewReader(fmt.Appendf(nil, externalIPRequestString, upnptype))
 }
 
 const portMappingRequestString = `<?xml version="1.0"?>
@@ -164,7 +164,7 @@ func (self *IGD) soapRequest(requestType string,
 			return
 		}
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err == nil {
 			slog.Debug("SOAP Response", "response", string(body))
 			err := xml.Unmarshal(body, &x)
