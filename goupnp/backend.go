@@ -35,7 +35,7 @@ type deviceElement struct {
 		ControlURL  string `xml:"controlURL"`
 	} `xml:"serviceList>service"`
 
-	Devices []deviceElement `xml:"deviceList>device",omitempty`
+	Devices []deviceElement `xml:"deviceList>device,omitempty"`
 }
 
 type deviceDescription struct {
