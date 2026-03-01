@@ -10,12 +10,14 @@ import (
 	"strconv"
 	"time"
 
-	l4g "code.google.com/p/log4go"
+	"log/slog"
+
 	"github.com/nhelke/goupnpc/goupnp"
 )
 
 func main() {
-	l4g.AddFilter("stdout", l4g.WARNING, l4g.NewConsoleLogWriter())
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	slog.SetDefault(logger)
 
 	if len(os.Args) < 2 {
 		printUsage()

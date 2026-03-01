@@ -9,7 +9,7 @@ import (
 	"net"
 	"net/http"
 
-	l4g "code.google.com/p/log4go"
+	"log/slog"
 )
 
 type protocol int
@@ -166,18 +166,18 @@ func (self *IGD) soapRequest(requestType string,
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
-			l4g.Debug("SOAP Response:\n%s", string(body))
+			slog.Debug("SOAP Response", "response", string(body))
 			err := xml.Unmarshal(body, &x)
 			if err == nil {
 				ok = true
 			} else {
-				l4g.Warn("While unmarshaling XML: %v", err)
+				slog.Warn("While unmarshaling XML", "error", err)
 			}
 		} else {
-			l4g.Warn("While reading response: %v", err)
+			slog.Warn("While reading response", "error", err)
 		}
 	} else {
-		l4g.Warn("While performing SOAP/HTTP request: %v", err)
+		slog.Warn("While performing SOAP/HTTP request", "error", err)
 	}
 
 	return

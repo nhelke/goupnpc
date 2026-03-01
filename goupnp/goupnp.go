@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	l4g "code.google.com/p/log4go"
+	"log/slog"
 )
 
 const (
@@ -68,7 +68,7 @@ func DiscoverIGD() (ret chan *IGD) {
 	go func() {
 		// For each and every local address in the private network range
 		bindLocalAddrs := localPrivateAddrs()
-		l4g.Debug("Found %d private network interfaces", len(bindLocalAddrs))
+		slog.Debug("Found private network interfaces", "count", len(bindLocalAddrs))
 		for i := 0; i < len(bindLocalAddrs); i++ {
 			// Use SSDP to search for a UPnP-enabled IGD
 			descURL, ok := discoverIGDDescriptionURL(bindLocalAddrs[i])
@@ -85,7 +85,7 @@ func DiscoverIGD() (ret chan *IGD) {
 					// it is a low priority
 					body, err := ioutil.ReadAll(resp.Body)
 					if err == nil {
-						l4g.Debug("Description XML:\n%s", string(body))
+						slog.Debug("Description XML", "content", string(body))
 						// Parse the XML and extract relevant information
 						upnptype, controlURL, err := getConnectionControlURL(body)
 						if err == nil {
@@ -93,7 +93,7 @@ func DiscoverIGD() (ret chan *IGD) {
 							// It worked, lets now try and wrap it in an igd struct
 							igd.controlURL, err = url.Parse(controlURL)
 							if err != nil {
-								l4g.Warn("Failed to parse URL %v", controlURL)
+								slog.Warn("Failed to parse URL", "url", controlURL)
 							} else {
 								// Some routers erroniously do not provide a base URL
 								// so we check if this is not an absoulte URL, we attempt
@@ -117,10 +117,10 @@ func DiscoverIGD() (ret chan *IGD) {
 								ret <- &igd
 							}
 						} else {
-							l4g.Warn("Bad XML: %v", err)
+							slog.Warn("Bad XML", "error", err)
 						}
 					} else {
-						l4g.Warn("Error reading response")
+						slog.Warn("Error reading response")
 					}
 				}
 			}
@@ -166,10 +166,10 @@ func (self *IGD) GetConnectionStatus() (ret chan *ConnectionStatus) {
 					ret <- &ConnectionStatus{true, ip}
 					return
 				} else {
-					l4g.Warn("Failed to parse IP string %v", ipString)
+					slog.Warn("Failed to parse IP string", "ip", ipString)
 				}
 			} else {
-				l4g.Warn("Failed to get IP address after estabilishing the connection was ok")
+				slog.Warn("Failed to get IP address after establishing the connection was ok")
 			}
 		} else if ok && strings.EqualFold(x.Body.Status.NewConnectionStatus, "Disconnected") {
 			ret <- &ConnectionStatus{false, nil}

@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	l4g "code.google.com/p/log4go"
+	"log/slog"
 )
 
 // Returns all local interface IP addresses in the private network range
@@ -30,7 +30,7 @@ func localPrivateAddrs() (ret []*net.UDPAddr) {
 
 			if ip != nil {
 				if IsPrivateIPAddress(ip) {
-					l4g.Debug("Found private addr %v", ip)
+					slog.Debug("Found private addr", "ip", ip)
 					ret = append(ret, &net.UDPAddr{
 						IP:   ip,
 						Port: 0,
@@ -39,7 +39,7 @@ func localPrivateAddrs() (ret []*net.UDPAddr) {
 			}
 		}
 	} else {
-		l4g.Warn(err)
+		slog.Warn("Error", "err", err)
 	}
 	return
 }
@@ -110,7 +110,7 @@ func discoverIGDDescriptionURL(localBindAddr *net.UDPAddr) (u *url.URL, ok bool)
 				adulteredReqStr := requestString
 				adulteredReqStr[9] = '/'
 				// Parse and interpret the response and break if successful
-				l4g.Debug("Received %d bytes from %v", n, addr)
+				slog.Debug("Received bytes from address", "bytes", n, "address", addr)
 				req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(
 					adulteredReqStr)))
 				if err != nil {
@@ -124,7 +124,7 @@ func discoverIGDDescriptionURL(localBindAddr *net.UDPAddr) (u *url.URL, ok bool)
 				if err == nil {
 					// We got something back, lets not leak it
 					defer resp.Body.Close()
-					l4g.Debug("Discovered device returned:\n%v", resp.Header)
+					slog.Debug("Discovered device returned", "headers", resp.Header)
 					// We extract the description URL returned in the Location
 					// header. The UPnP standard ensure
 					urls := resp.Header["Location"]
@@ -138,18 +138,17 @@ func discoverIGDDescriptionURL(localBindAddr *net.UDPAddr) (u *url.URL, ok bool)
 						ok = err == nil
 						return
 					} else {
-						l4g.Warn("Response did not contain Location header:\n%v",
-							resp.Header)
+						slog.Warn("Response did not contain Location header", "headers", resp.Header)
 					}
 				} else {
-					l4g.Warn(err)
+					slog.Warn("Error occurred", "error", err)
 				}
 			} else {
-				l4g.Warn(err)
+				slog.Warn("Error occurred", "error", err)
 			}
 		}
 	} else {
-		l4g.Warn(err)
+		slog.Warn("Error occurred", "error", err)
 	}
 	// If we get here we could not find any UPnP devices
 	return // ok is false by default, signaling this failure
